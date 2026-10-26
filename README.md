@@ -1,68 +1,98 @@
-# 📈 Reliance Industries Stock Price Prediction
+# 📈 Reliance Industries (RIL) Stock Price Prediction
 
 > **Mini Project — Semester 5 (2026)**  
-> **Domain:** Machine Learning & Deep Learning / Financial Generative AI (FGAI / MDM)  
-> **Dataset:** Reliance Industries Limited (RIL) Daily Stock Prices (1996 – 2020)
+> **Course / Track:** Financial Generative AI (FGAI) / Modern Data Mining (MDM)  
+> **Asset:** Reliance Industries Limited (`RELIANCE.NS` on the National Stock Exchange of India)  
+> **Historical Range:** January 2020 – October 2026 (1,687 daily trading sessions)  
+> **Price Metric:** Auto-Adjusted Close (accounts for splits, dividends, and corporate actions via `yfinance`)
 
 ---
 
 ## 📌 Project Overview
 
-This project implements and benchmarks three deep learning architectures—**Multilayer Perceptron (MLP)**, **Long Short-Term Memory (LSTM)**, and **Gated Recurrent Unit (GRU)**—against a **Persistence Baseline** for next-day stock price forecasting of Reliance Industries Ltd. (NSE: `RELIANCE`).
+This project provides an end-to-end deep learning framework and an interactive Streamlit dashboard for predicting next-day adjusted closing prices of Reliance Industries Limited (RIL). 
 
-The pipeline enforces strict time-series integrity:
-- **No data leakage:** MinMax scaler is fitted strictly on the chronological training split.
-- **Sliding-window sequencing:** Uses a 60-day historical window to forecast day $t+1$.
-- **Validation integrity:** Chronological validation split without cross-temporal shuffling.
-- **Interactive Dashboard:** Complete Streamlit web application with interactive Plotly visualizations.
+Three neural network architectures—**Multilayer Perceptron (MLP)**, **Long Short-Term Memory (LSTM)**, and **Gated Recurrent Unit (GRU)**—are benchmarked against a **Persistence Baseline** ($y_t = y_{t-1}$). The project is purposely contained in two primary artifacts for clarity and maintainability:
+- [`stock_prediction.ipynb`](stock_prediction.ipynb) — Interactive exploratory data analysis, data preparation, window sequencing, model training, and performance evaluation.
+- [`app.py`](app.py) — Production-grade interactive Streamlit dashboard with multi-tab comparative visualization, recursive multi-step forecasting, and historical backtesting.
 
 ---
 
-## 📊 Model Architecture Comparison & Results
+## 🏆 Model Evaluation & Benchmark Results
 
-Evaluated on the out-of-sample test set (last 20% chronological split):
+Evaluated on the out-of-sample test split (the final 15% chronological data: 254 trading days from late 2024 through late 2026):
 
-| Model | MAE (₹) | RMSE (₹) | MAPE (%) | Direction Accuracy (%) |
-| :--- | :---: | :---: | :---: | :---: |
-| **Persistence Baseline** ($y_t = y_{t-1}$) | **17.32** | **34.30** | **1.40%** | — |
-| **GRU** | **27.90** | **45.32** | **2.05%** | **48.99%** |
-| **LSTM** | 172.33 | 235.36 | 11.90% | 48.43% |
-| **MLP** | 256.82 | 293.13 | 19.52% | 48.03% |
+| Rank | Model Architecture | MAE (₹) | RMSE (₹) | Notes / Characteristics |
+| :---: | :--- | :---: | :---: | :--- |
+| 🥇 | **Persistence Baseline** ($y_t = y_{t-1}$) | **₹13.83** | **₹18.36** | Best raw error; reflects random-walk behavior |
+| 🥈 | **Gated Recurrent Unit (GRU)** | **₹22.04** | **₹27.95** | **Best Deep Learning Model**; lowest error & fastest convergence |
+| 🥉 | **Long Short-Term Memory (LSTM)** | ₹40.14 | ₹49.06 | Strong temporal sequence learning, higher parameter count |
+| 4 | **Multilayer Perceptron (MLP)** | ₹113.46 | ₹124.91 | Baseline feed-forward network without recurrence |
 
-### Key Insights:
-1. **Best Deep Learning Model:** **GRU** significantly outperformed LSTM and MLP, capturing short-to-medium sequential dependencies with lower parameter overhead.
-2. **Random Walk Reality:** The persistence baseline achieving the lowest raw MAE illustrates the Efficient Market Hypothesis (EMH)—daily price levels in equities behave closely to a random walk where today's price is the strongest point estimate of tomorrow's price.
-3. **Direction Accuracy:** All neural network architectures hover around ~48–49% direction accuracy, confirming that raw price sequence regression alone without sentiment, macroeconomic, or order-book features cannot trivially predict directional momentum.
+### 💡 Core Analytical Insights
+
+1. **GRU Outperformed Recurrent Alternatives:** GRU achieved an MAE of **₹22.04** (compared to LSTM's ₹40.14 and MLP's ₹113.46). Its simplified gating structure (reset and update gates) mitigates vanishing gradients and avoids overfitting on shorter daily financial sequences.
+2. **The Persistence Benchmark Challenge:** In daily equity price levels, tomorrow's price is heavily correlated with today's price ($y_t \approx y_{t-1}$). The persistence baseline's MAE of ₹13.83 confirms the Efficient Market Hypothesis (EMH)—raw sequential regression models track prices with a lag rather than discovering risk-free forward arbitrage.
+3. **Multi-Step Compounding:** The app provides recursive multi-step forecasting (1 month to 2 years). As forecasts feed into subsequent steps, prediction drift and variance naturally expand, demonstrating why machine learning models should be treated as probabilistic indicators rather than guaranteed deterministic forecasts.
 
 ---
 
-## 🗂️ Project Structure
+## 🛡️ Time-Series Integrity & Zero-Leakage Pipeline
+
+Predicting financial time series requires strict methodological rigor to prevent data leakage and lookahead bias:
+
+- **Chronological 70 / 15 / 15 Partition:**
+  - **Training Set (70%):** Days $0 \to 1,179$ (1,180 trading days)
+  - **Validation Set (15%):** Days $1,180 \to 1,432$ (253 trading days) for EarlyStopping (`patience=10`)
+  - **Test Set (15%):** Days $1,433 \to 1,686$ (254 trading days) reserved strictly for unbiased out-of-sample evaluation
+- **Strict Scaler Isolation:** The `MinMaxScaler(feature_range=(0, 1))` is fitted **strictly on the 70% training slice** (`prices[:train_end]`). Test and validation data are transformed using this frozen scaler.
+- **Sliding-Window Feature Formulation:** A 60-day historical window ($t-60, \dots, t-1$) is used to predict day $t$. No future labels or future feature values enter the sequence generation.
+- **Synchronized Metadata:** Split boundaries and window parameters are saved to `models/meta.json` so the Streamlit app dynamically evaluates on the exact identical test window used during training.
+
+---
+
+## 🖥️ Streamlit Interactive Dashboard (`app.py`)
+
+The application offers an interactive financial interface divided into four functional views:
+
+1. **📊 Overview:**
+   - Real-time headline metrics: latest closing price, historical high/low, total volume, and date coverage.
+   - Interactive Plotly chart with 20-day and 50-day Simple Moving Averages (SMA) and volume bars.
+2. **🏆 Model Comparison:**
+   - Summary metric table comparing MAE and RMSE across all models.
+   - Comparative bar charts for quick visual assessment.
+   - Out-of-sample actual vs. predicted plot with dynamic model checkboxes to inspect track fitting.
+3. **🔮 Future Forecast:**
+   - Multi-step recursive projection for up to 2 years (1M, 3M, 6M, 1Y, 2Y).
+   - Dynamic uncertainty cone visualization depicting error widening over time.
+   - Clear financial disclaimers and drift warnings.
+4. **🔍 Historical Backtest:**
+   - Select any historical year (2020 – 2026).
+   - Compares actual prices against simulated next-day predictions and persistence baseline for that specific timeframe with on-the-fly calculated MAE/RMSE.
+
+---
+
+## 🗂️ Project Repository Structure
 
 ```text
-├── app.py                     # Interactive Streamlit dashboard
-├── stock_prediction.ipynb     # Jupyter notebook (end-to-end training & analysis)
-├── train_model.py             # Script to train MLP, LSTM, GRU & save artifacts
-├── predict_next_day.py        # Next trading day forecast inference script
-├── preprocess_data.py         # Data cleaning and feature preprocessing
-├── stock_data.csv             # Historical daily stock data (RIL)
-├── model_results.csv          # Evaluation metrics across all architectures
-├── next_day_prediction.csv    # Next-day predicted close prices
+├── stock_prediction.ipynb     # Primary Jupyter notebook (EDA, training, evaluation)
+├── app.py                     # Streamlit web application
+├── retrain.py                 # Reproducible headless retraining script
 ├── requirements.txt           # Project dependencies
-├── models/                    # Saved model artifacts (.keras & .pkl)
-│   ├── gru_model.keras
-│   ├── lstm_model.keras
-│   ├── mlp_model.keras
-│   └── price_scaler.pkl
-└── plots/                     # Output comparison and training plots
-    ├── actual_vs_predicted.png
-    ├── metric_comparison.png
-    ├── price_history.png
-    └── training_loss.png
+├── stock_data.csv             # Cleaned daily OHLCV dataset (RELIANCE.NS, 2020–2026)
+├── model_results.csv          # Benchmark evaluation metrics (MAE & RMSE)
+├── models/                    # Serialized neural networks and artifacts
+│   ├── gru_model.keras        # Saved GRU model
+│   ├── lstm_model.keras       # Saved LSTM model
+│   ├── mlp_model.keras        # Saved MLP model
+│   ├── price_scaler.pkl       # Fitted MinMaxScaler (on training split only)
+│   └── meta.json              # Dataset partition indices and window metadata
+└── .gitignore                 # Excludes cache files and virtual environments
 ```
 
 ---
 
-## ⚙️ Installation & Setup
+## 🚀 Quickstart & Setup
 
 ### 1. Clone the Repository
 ```bash
@@ -70,8 +100,8 @@ git clone https://github.com/yagneshatwork/Stock-Market-Prediction-RIL-MDM-FGAI-
 cd Stock-Market-Prediction-RIL-MDM-FGAI-MiniProject-Sem5-2026
 ```
 
-### 2. Create and Activate Virtual Environment
-```bash
+### 2. Set Up a Virtual Environment (Recommended)
+```powershell
 # Windows (PowerShell)
 python -m venv venv
 .\venv\Scripts\Activate.ps1
@@ -86,42 +116,30 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
----
-
-## 🚀 Usage
-
-### Run the Interactive Web Dashboard
-Launch the Streamlit app to explore data, test different models, and view next-day predictions:
+### 4. Launch the Streamlit Dashboard
 ```bash
 streamlit run app.py
 ```
+*The web interface will open in your browser at `http://localhost:8501`.*
 
-### Run Jupyter Notebook
-Open and execute the step-by-step notebook:
-```bash
-jupyter notebook stock_prediction.ipynb
-```
-
-### Retrain Models via CLI
-```bash
-python train_model.py
-```
-
-### Generate Next-Day Prediction
-```bash
-python predict_next_day.py
-```
+### 5. Run the Notebook or Retrain
+- Open [`stock_prediction.ipynb`](stock_prediction.ipynb) in Jupyter / VS Code for step-by-step interactive analysis.
+- Or execute the automated headless pipeline:
+  ```bash
+  python retrain.py
+  ```
 
 ---
 
-## 🛡️ Time-Series Methodology & Data Leakage Prevention
+## 📦 Tech Stack & Dependencies
 
-1. **Chronological Splitting:** 80% train / 20% test partition without shuffle, respecting the arrow of time.
-2. **Scaler Isolation:** `MinMaxScaler` is fit solely on `prices[:split_index]` and applied to transform both splits.
-3. **No Lookahead Bias:** Each prediction $y_t$ is strictly conditioned on $[p_{t-60}, \dots, p_{t-1}]$.
-4. **Validation Integrity:** Model training uses `validation_split=0.1` with `shuffle=False` and `EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)`.
+- **Data Acquisition:** `yfinance`
+- **Data Manipulation:** `pandas`, `numpy`
+- **Machine Learning & Deep Learning:** `tensorflow` (Keras 3), `scikit-learn`, `joblib`
+- **Interactive UI & Visualization:** `streamlit`, `plotly`, `matplotlib`
 
 ---
 
-## 📜 Disclaimer
-This project is for educational and research purposes as part of academic coursework. It is **not** financial or trading advice.
+## 📜 Academic Disclaimer
+
+This project is developed exclusively for educational and academic evaluation as part of the Semester 5 Financial Generative AI / Modern Data Mining curriculum. Financial market predictions carry inherent uncertainties; this repository does **not** constitute financial, investment, or trading advice.
