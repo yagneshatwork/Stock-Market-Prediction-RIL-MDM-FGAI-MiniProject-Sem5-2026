@@ -1,0 +1,9 @@
+{
+  "train_end_idx": 1180,
+  "val_end_idx": 1433,
+  "window_size": 60,
+  "train_ratio": 0.7,
+  "val_ratio": 0.15,
+  "price_type": "adjusted_close (yfinance auto_adjust=True)",
+  "trained_on": "2026-10-27"
+}
