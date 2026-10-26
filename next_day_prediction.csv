@@ -1,0 +1,4 @@
+Model,Predicted next close,Change,Change (%)
+MLP,1543.22,-386.58,-20.03
+LSTM,1455.62,-474.18,-24.57
+GRU,1861.94,-67.86,-3.52
